@@ -9,45 +9,46 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-@app.route('/', methods=['GET'])
+@app.route('/', methods=['POST', 'GET'])
 def index():
-	return render_template('index.html')
+    if request.method == 'POST':
+        original_text = request.form['text']
+        target_language = request.form['language']
 
-@app.route('/', methods=['POST'])
-def index_post():
+        key = os.environ['KEY']
+        endpoint = os.environ['ENDPOINT']
+        location = os.environ['LOCATION']
 
-    original_text = request.form['text']
-    target_language = request.form['language']
+        path = '/translate?api-version=3.0'
 
-    key = os.environ['KEY']
-    endpoint = os.environ['ENDPOINT']
-    location = os.environ['LOCATION']
+        target_language_parameter = '&to=' + target_language
 
-    path = '/translate?api-version=3.0'
+        constructed_url = endpoint + path + target_language_parameter
 
-    target_language_parameter = '&to=' + target_language
+        headers = {
+            'Ocp-Apim-Subscription-Key': key,
+            'Ocp-Apim-Subscription-Region': location,
+            'Content-type': 'application/json',
+            'X-ClientTraceId': str(uuid.uuid4())
+        }
 
-    constructed_url = endpoint + path + target_language_parameter
+        body = [{'text': original_text}]
 
-    headers = {
-        'Ocp-Apim-Subscription-Key': key,
-        'Ocp-Apim-Subscription-Region': location,
-        'Content-type': 'application/json',
-        'X-ClientTraceId': str(uuid.uuid4())
-    }
+        translator_request = requests.post(
+            constructed_url, headers=headers, json=body)
 
-    body = [{'text': original_text}]
+        translator_response = translator_request.json()
 
-    translator_request = requests.post(
-        constructed_url, headers=headers, json=body)
+        translated_text = translator_response[0]['translations'][0]['text']
 
-    translator_response = translator_request.json()
+        return render_template(
+            'results.html',
+            translated_text=translated_text,
+            original_text=original_text,
+            target_language=target_language
+        )
+    else:
+        return render_template('index.html')
 
-    translated_text = translator_response[0]['translations'][0]['text']
 
-    return render_template(
-        'results.html',
-        translated_text=translated_text,
-        original_text=original_text,
-        target_language=target_language
-    )
+
